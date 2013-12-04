@@ -5,8 +5,12 @@
 package jpeg
 
 import (
+	"fmt"
 	"image"
+	"image/color"
 	"io"
+	"math/rand"
+	"os"
 )
 
 // makeImg allocates and initializes the destination image.
@@ -118,6 +122,14 @@ func (d *decoder) processSOS(n int) error {
 			}
 		}
 	}
+
+	// DS: create a Gray image that's 1/8th (mxx X myy) the size
+	// of the original.  this will hold the pixels we want to keep
+	// and encode as output.
+	scaledImage := image.NewGray(image.Rect(0, 0, mxx, myy))
+
+	// DS: debug output
+	fmt.Printf("MCU X: (%d) MCU Y: (%d)\n", mxx, myy)
 
 	d.b = bits{}
 	mcu, expectedRST := 0, uint8(rst0Marker)
@@ -295,6 +307,13 @@ func (d *decoder) processSOS(n int) error {
 								c += 128
 							}
 							dst[yStride+x] = uint8(c)
+
+							// DS: (x,y) => (0,0) means this is the first (DC) coefficient
+							// in the current 8x8 block.  These values don't need any DCT
+							// fun, and we can store them in the output buffer.
+							if y == 0 && x == 0 && compIndex == 0 {
+								scaledImage.SetGray(mx, my, color.Gray{dst[yStride]})
+							}
 						}
 					}
 				} // for j
@@ -323,6 +342,12 @@ func (d *decoder) processSOS(n int) error {
 			}
 		} // for mx
 	} // for my
+
+	// DS: scaledImage should be full of pixels.  write it out to disk
+	// as a JPEG
+	fileName := fmt.Sprintf("scaled_%d_%d_rand_%d.jpg", mxx, myy, rand.Int())
+	toimg, _ := os.Create(fileName)
+	Encode(toimg, scaledImage, &Options{DefaultQuality})
 
 	return nil
 }
