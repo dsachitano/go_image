@@ -47,6 +47,7 @@ func (d *decoder) makeImg(h0, v0, mxx, myy int) {
 		default:
 			panic("unreachable")
 		}
+		fmt.Println(subsampleRatio)
 		m := image.NewYCbCr(image.Rect(0, 0, mxx, myy), subsampleRatio)
 		d.imgDCT = m.SubImage(image.Rect(0, 0, mxx, myy)).(*image.YCbCr)
 	}
@@ -292,17 +293,17 @@ func (d *decoder) dctScaleSOS(n int) error {
 					}
 
 					// Dequantize, perform the inverse DCT and store the block to the image.
-					for zig := 0; zig < blockSize; zig++ {
-						b[unzig[zig]] *= qt[zig]
-					}
+					b[unzig[0]] *= qt[0]
 
-					if compIndex != 0 {
-						// for now, only work in grayscale Y color component
+					if d.nComp == nGrayComponent {
+						// for now, no grayscale color component
 						//continue
+						fmt.Printf("Here is the gray block\n");
 					}
 
-					// Level shift by +128, clip to [0, 255], and write to dst.
-					c := b[0]
+					// DS: bitshift right by 3, for proper scaling of DCT coefficient, then
+					// Level shift by +128, clip to [0, 255], and write to output
+					c := b[0] >> 3
 					if c < -128 {
 						c = 0
 					} else if c > 127 {

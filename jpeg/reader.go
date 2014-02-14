@@ -341,8 +341,7 @@ func (d *decoder) decode(r io.Reader, configOnly bool) (image.Image, error) {
 			return nil, err
 		}
 	}
-	// DS: in the special case of dctScaling, we're hijiacking
-	// the img1 
+	// DS: in the special case of dctScaling, use imgDCT
 	if d.dctScale {
 		if d.imgDCT != nil {
 			return d.imgDCT, nil
