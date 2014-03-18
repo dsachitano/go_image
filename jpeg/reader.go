@@ -107,6 +107,8 @@ type decoder struct {
 	quant         [maxTq + 1]block // Quantization tables, in zig-zag order.
 	tmp           [1024]byte
 	dctScale      bool	// DS: indicates whether to attempt DCT-space scaling
+	progScale     bool	// DS: indicates whether to attempt progressive scan scaling
+	progScaleNumScans     int // DS: indicates number of scans to read
 }
 
 // Reads and ignores the next n bytes.
@@ -368,6 +370,13 @@ func Decode(r io.Reader) (image.Image, error) {
 func DCTScale(r io.Reader) (image.Image, error) {
 	var d decoder
 	d.dctScale = true
+	return d.decode(r, false)
+}
+
+func ProgScale(r io.Reader, numScans int) (image.Image, error) {
+	var d decoder
+	d.progScale = true
+	d.progScaleNumScans = numScans
 	return d.decode(r, false)
 }
 
