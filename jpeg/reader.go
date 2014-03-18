@@ -96,6 +96,7 @@ type decoder struct {
 	width, height int
 	img1          *image.Gray
 	img3          *image.YCbCr
+	imgDCT        *image.YCbCr // DS: store the scaled image
 	ri            int // Restart Interval.
 	nComp         int
 	progressive   bool
@@ -105,6 +106,9 @@ type decoder struct {
 	huff          [maxTc + 1][maxTh + 1]huffman
 	quant         [maxTq + 1]block // Quantization tables, in zig-zag order.
 	tmp           [1024]byte
+	dctScale      bool	// DS: indicates whether to attempt DCT-space scaling
+	progScale     bool	// DS: indicates whether to attempt progressive scan scaling
+	progScaleNumScans     int // DS: indicates number of scans to read
 }
 
 // Reads and ignores the next n bytes.
@@ -321,7 +325,13 @@ func (d *decoder) decode(r io.Reader, configOnly bool) (image.Image, error) {
 		case marker == dqtMarker: // Define Quantization Table.
 			err = d.processDQT(n)
 		case marker == sosMarker: // Start Of Scan.
-			err = d.processSOS(n)
+			// DS: we want to do something similiar to process SOS
+			// but instead we pick out the DC Coefficients
+			if d.dctScale {
+				err = d.dctScaleSOS(n)
+			} else {
+				err = d.processSOS(n)
+			}
 		case marker == driMarker: // Define Restart Interval.
 			err = d.processDRI(n)
 		case app0Marker <= marker && marker <= app15Marker || marker == comMarker: // APPlication specific, or COMment.
@@ -331,6 +341,14 @@ func (d *decoder) decode(r io.Reader, configOnly bool) (image.Image, error) {
 		}
 		if err != nil {
 			return nil, err
+		}
+	}
+	// DS: in the special case of dctScaling, use imgDCT
+	if d.dctScale {
+		if d.imgDCT != nil {
+			return d.imgDCT, nil
+		} else {
+			return nil, UnsupportedError("dctScaling failed")
 		}
 	}
 	if d.img1 != nil {
@@ -345,6 +363,20 @@ func (d *decoder) decode(r io.Reader, configOnly bool) (image.Image, error) {
 // Decode reads a JPEG image from r and returns it as an image.Image.
 func Decode(r io.Reader) (image.Image, error) {
 	var d decoder
+	return d.decode(r, false)
+}
+
+// DS: Use the DCT scale code
+func DCTScale(r io.Reader) (image.Image, error) {
+	var d decoder
+	d.dctScale = true
+	return d.decode(r, false)
+}
+
+func ProgScale(r io.Reader, numScans int) (image.Image, error) {
+	var d decoder
+	d.progScale = true
+	d.progScaleNumScans = numScans
 	return d.decode(r, false)
 }
 
