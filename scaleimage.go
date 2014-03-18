@@ -19,16 +19,16 @@ func main() {
 		fmt.Printf("%v\n", err)
 	}
 
-	toimg, _ := jpeg.DCTScale(f)
+	dctScaledimg, _ := jpeg.DCTScale(f)
 
 	// DS: scaledImage should be full of pixels.  write it out to disk
         // as a JPEG
-	x := toimg.Bounds().Max.X
-	y := toimg.Bounds().Max.Y
+	x := dctScaledimg.Bounds().Max.X
+	y := dctScaledimg.Bounds().Max.Y
 
         outputFileName := fmt.Sprintf("scaled_%d_%d_rand_%d.jpg", x, y, rand.Int())
         outputFile, _ := os.Create(outputFileName)
-        jpeg.Encode(outputFile, toimg, &jpeg.Options{jpeg.DefaultQuality})
+        jpeg.Encode(outputFile, dctScaledimg, &jpeg.Options{jpeg.DefaultQuality})
 
 	f.Close()
 }
